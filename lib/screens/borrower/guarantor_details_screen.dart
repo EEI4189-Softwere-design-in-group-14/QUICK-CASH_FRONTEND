@@ -1,126 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../services/api_service.dart';
+import 'loan_application_screen.dart';
 
-class GuarantorDetailsScreen extends StatefulWidget {
+class GuarantorDetailsScreen extends StatelessWidget {
   const GuarantorDetailsScreen({super.key});
 
-  @override
-  State<GuarantorDetailsScreen> createState() => _GuarantorDetailsScreenState();
-}
-
-class _GuarantorDetailsScreenState extends State<GuarantorDetailsScreen> {
   static const Color primary = Color(0xFF168B62);
-
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _nicController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _relationshipController = TextEditingController();
-  final _occupationController = TextEditingController();
-  final ApiService _api = ApiService();
-
-  bool _declarationAccepted = false;
-  bool _submitting = false;
-
-  String? _required(String? value) =>
-      value == null || value.trim().isEmpty ? 'This field is required' : null;
-
-  String? _validatePhone(String? value) {
-    final phone = value?.replaceAll(RegExp(r'\s+'), '') ?? '';
-    if (!RegExp(r'^\+?[0-9]{9,15}$').hasMatch(phone)) {
-      return 'Enter a valid phone number';
-    }
-    return null;
-  }
-
-  String? _validateEmail(String? value) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) return null;
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      return 'Enter a valid email address';
-    }
-    return null;
-  }
-
-  Future<void> _submit() async {
-    if (_submitting || !_formKey.currentState!.validate()) return;
-    if (!_declarationAccepted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please confirm that the details are correct.'),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _submitting = true);
-    try {
-      // Confirm the endpoint and field names with the backend team.
-      final response = await _api.post(
-        '/api/loans/guarantors',
-        {
-          'fullName': _nameController.text.trim(),
-          'nic': _nicController.text.trim(),
-          'phoneNumber': _phoneController.text.trim(),
-          'email': _emailController.text.trim(),
-          'address': _addressController.text.trim(),
-          'relationship': _relationshipController.text.trim(),
-          'occupation': _occupationController.text.trim(),
-        },
-      );
-
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Guarantor details submitted'),
-          content: Text(
-            response is Map && response['message'] != null
-                ? response['message'].toString()
-                : 'Your guarantor details have been submitted for review.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      if (mounted) Navigator.of(context).pop(true);
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message), backgroundColor: Colors.red),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to submit details. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _nicController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    _addressController.dispose();
-    _relationshipController.dispose();
-    _occupationController.dispose();
-    _api.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,160 +18,86 @@ class _GuarantorDetailsScreenState extends State<GuarantorDetailsScreen> {
       ),
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
-            child: Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(18),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(22),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(18),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE3F4EB),
-                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Column(
                       children: [
-                        Icon(Icons.verified_user_outlined,
-                            color: primary, size: 28),
-                        SizedBox(width: 12),
-                        Expanded(
+                        const CircleAvatar(
+                          radius: 38,
+                          backgroundColor: Color(0xFFE3F4EB),
+                          child: Icon(
+                            Icons.people_alt_outlined,
+                            size: 40,
+                            color: primary,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'Add a guarantor to your loan application',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF18372B),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'QuickCash records guarantor details together with '
+                          'the loan application. There is no separate '
+                          'guarantor submission endpoint in the current backend.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(height: 1.5, color: Colors.black54),
+                        ),
+                        const SizedBox(height: 22),
+                        const Align(
+                          alignment: Alignment.centerLeft,
                           child: Text(
-                            'Provide the details of the person who has agreed '
-                            'to act as your guarantor. Make sure you have '
-                            'their permission to share this information.',
-                            style: TextStyle(height: 1.4),
+                            'You will need:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const _RequirementRow(text: 'Guarantor full name'),
+                        const _RequirementRow(text: 'Sri Lankan NIC number'),
+                        const _RequirementRow(text: 'Phone number'),
+                        const _RequirementRow(text: 'Residential address'),
+                        const _RequirementRow(text: 'Occupation (optional)'),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<bool>(
+                                  builder: (_) => const LoanApplicationScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.arrow_forward),
+                            label: const Text('Continue to Loan Application'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 22),
-                  const Text(
-                    'Personal information',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _nameController,
-                    textCapitalization: TextCapitalization.words,
-                    validator: _required,
-                    decoration: _decoration('Full name', Icons.person_outline),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _nicController,
-                    textCapitalization: TextCapitalization.characters,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'NIC number is required';
-                      }
-                      if (!RegExp(
-                        r'^(?:[0-9]{9}[vVxX]|[0-9]{12})$',
-                      ).hasMatch(value.trim())) {
-                        return 'Enter a valid NIC number';
-                      }
-                      return null;
-                    },
-                    decoration: _decoration('NIC number', Icons.badge_outlined),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    validator: _validatePhone,
-                    decoration: _decoration('Phone number', Icons.phone_outlined),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: _validateEmail,
-                    decoration: _decoration('Email address (optional)', Icons.email_outlined),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _addressController,
-                    textCapitalization: TextCapitalization.sentences,
-                    minLines: 2,
-                    maxLines: 4,
-                    validator: _required,
-                    decoration: _decoration('Residential address', Icons.home_outlined)
-                        .copyWith(alignLabelWithHint: true),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Additional information',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _relationshipController,
-                    validator: _required,
-                    decoration: _decoration(
-                      'Relationship to borrower',
-                      Icons.people_outline,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _occupationController,
-                    validator: _required,
-                    decoration: _decoration(
-                      'Occupation / employment',
-                      Icons.work_outline,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  CheckboxListTile(
-                    value: _declarationAccepted,
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    activeColor: primary,
-                    onChanged: (value) => setState(
-                      () => _declarationAccepted = value ?? false,
-                    ),
-                    title: const Text(
-                      'I confirm that these details are correct and that I '
-                      'have permission to provide them.',
-                      style: TextStyle(fontSize: 13),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 52,
-                    child: ElevatedButton.icon(
-                      onPressed: _submitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: _submitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.send_outlined),
-                      label: Text(
-                        _submitting ? 'Submitting...' : 'Submit guarantor details',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Guarantor information should be handled securely and only '
-                    'used for the loan application process.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                 ],
               ),
@@ -296,17 +107,23 @@ class _GuarantorDetailsScreenState extends State<GuarantorDetailsScreen> {
       ),
     );
   }
+}
 
-  InputDecoration _decoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon),
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFDDE9E1)),
+class _RequirementRow extends StatelessWidget {
+  const _RequirementRow({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, color: primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text)),
+        ],
       ),
     );
   }
