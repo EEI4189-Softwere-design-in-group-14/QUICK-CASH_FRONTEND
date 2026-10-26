@@ -5,7 +5,9 @@ import 'loan_application_screen.dart';
 import 'guarantor_details_screen.dart';
 
 class BorrowerDashboardScreen extends StatefulWidget {
-  const BorrowerDashboardScreen({super.key});
+  const BorrowerDashboardScreen({super.key, this.borrowerName});
+
+  final String? borrowerName;
 
   @override
   State<BorrowerDashboardScreen> createState() =>
@@ -19,6 +21,8 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
   int _selectedIndex = 0;
   final ApiService _api = ApiService();
   String _borrowerName = 'Borrower';
+  String _activeLoanStatus = 'No active loan';
+  String _activeLoanCode = '';
   String _activeLoan = 'Loading...';
   String _nextPayment = 'Loading...';
   String? _dashboardError;
@@ -26,6 +30,9 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _borrowerName = widget.borrowerName?.trim().isNotEmpty == true
+        ? widget.borrowerName!.trim()
+        : 'Borrower';
     _loadDashboard();
   }
 
@@ -36,8 +43,7 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
       Map<String, dynamic>? activeLoan;
       for (final item in loans) {
         if (item is Map<String, dynamic> &&
-            (item['status']?.toString().toUpperCase() == 'ACTIVE' ||
-             item['status']?.toString().toUpperCase() == 'APPROVED')) {
+            item['status']?.toString().toUpperCase() == 'ACTIVE') {
           activeLoan = item;
           break;
         }
@@ -45,11 +51,11 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
 
       if (!mounted) return;
       setState(() {
-        final email = data['borrowerEmail']?.toString() ?? '';
-        _borrowerName = email.contains('@') ? email.split('@').first : 'Borrower';
         _activeLoan = 'LKR ' + _money(data['activeOutstanding']);
-        _nextPayment = activeLoan == null
-            ? 'No active loan'
+        _activeLoanStatus = activeLoan?['status']?.toString() ?? 'No active loan';
+        _activeLoanCode = activeLoan?['loanCode']?.toString() ?? '';
+        _nextPayment = activeLoan == null || activeLoan['nextInstallmentRemaining'] == null
+            ? 'No upcoming payment'
             : 'LKR ' + _money(activeLoan['nextInstallmentRemaining']);
         _dashboardError = null;
       });
@@ -133,7 +139,7 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               _dashboardError ?? 'Here is your loan overview.',
               style: TextStyle(color: Colors.black54),
             ),
@@ -173,11 +179,13 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
                     title: 'Apply for Loan',
                     icon: Icons.add_card_rounded,
                     onTap: () {
-                      Navigator.of(context).push(
+                      Navigator.of(context).push<bool>(
                         MaterialPageRoute<bool>(
                           builder: (_) => const LoanApplicationScreen(),
                         ),
-                      );
+                      ).then((submitted) {
+                        if (submitted == true) _loadDashboard();
+                      });
                     },
                   ),
                 ),
@@ -317,9 +325,9 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Rs. 35,000',
-            style: TextStyle(
+          Text(
+            _activeLoan,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 30,
               fontWeight: FontWeight.bold,
@@ -337,8 +345,8 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
                     Text('Loan status',
                         style: TextStyle(color: Colors.white70, fontSize: 12)),
                     SizedBox(height: 5),
-                    Text('Active',
-                        style: TextStyle(
+                    Text(_activeLoanStatus,
+                        style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold)),
                   ],
@@ -353,7 +361,7 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text('View details'),
+                child: Text(_activeLoanCode.isEmpty ? 'No loan code' : _activeLoanCode),
               ),
             ],
           ),
