@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../services/api_service.dart';
+import 'loan_application_screen.dart';
+import 'guarantor_details_screen.dart';
+
 class BorrowerDashboardScreen extends StatefulWidget {
   const BorrowerDashboardScreen({super.key});
 
@@ -13,12 +17,70 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
   static const Color background = Color(0xFFF5FAF7);
 
   int _selectedIndex = 0;
+  final ApiService _api = ApiService();
+  String _borrowerName = 'Borrower';
+  String _activeLoan = 'Loading...';
+  String _nextPayment = 'Loading...';
+  String? _dashboardError;
 
-  // Demo values for the UI. Replace with API data when borrower endpoints
-  // are available.
-  final String _borrowerName = 'Borrower';
-  final String _activeLoan = 'Rs. 50,000';
-  final String _nextPayment = 'Rs. 5,000';
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+  }
+
+  Future<void> _loadDashboard() async {
+    try {
+      final data = await _api.getBorrowerDashboard();
+      final loans = data['loans'] is List ? data['loans'] as List : <dynamic>[];
+      Map<String, dynamic>? activeLoan;
+      for (final item in loans) {
+        if (item is Map<String, dynamic> &&
+            (item['status']?.toString().toUpperCase() == 'ACTIVE' ||
+             item['status']?.toString().toUpperCase() == 'APPROVED')) {
+          activeLoan = item;
+          break;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        final email = data['borrowerEmail']?.toString() ?? '';
+        _borrowerName = email.contains('@') ? email.split('@').first : 'Borrower';
+        _activeLoan = 'LKR ' + _money(data['activeOutstanding']);
+        _nextPayment = activeLoan == null
+            ? 'No active loan'
+            : 'LKR ' + _money(activeLoan['nextInstallmentRemaining']);
+        _dashboardError = null;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _dashboardError = error.message;
+        _activeLoan = 'Unavailable';
+        _nextPayment = 'Unavailable';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _dashboardError = 'Could not load dashboard data.';
+        _activeLoan = 'Unavailable';
+        _nextPayment = 'Unavailable';
+      });
+    }
+  }
+
+  String _money(dynamic value) {
+    if (value == null) return '0.00';
+    final number = double.tryParse(value.toString());
+    return number == null ? value.toString() : number.toStringAsFixed(2);
+  }
+
+  @override
+  void dispose() {
+    _api.dispose();
+    super.dispose();
+  }
 
   void _showComingSoon(String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -72,7 +134,7 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Here is your loan overview.',
+              _dashboardError ?? 'Here is your loan overview.',
               style: TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 22),
@@ -110,7 +172,13 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
                   child: _actionCard(
                     title: 'Apply for Loan',
                     icon: Icons.add_card_rounded,
-                    onTap: () => _showComingSoon('Loan application'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<bool>(
+                          builder: (_) => const LoanApplicationScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -130,7 +198,13 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
                   child: _actionCard(
                     title: 'My Guarantors',
                     icon: Icons.people_outline_rounded,
-                    onTap: () => _showComingSoon('Guarantor details'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<bool>(
+                          builder: (_) => const GuarantorDetailsScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -162,7 +236,7 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Demo information is displayed until live borrower data is connected.',
+              'Loan information is loaded from your QuickCash account.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11, color: Colors.black45),
             ),
