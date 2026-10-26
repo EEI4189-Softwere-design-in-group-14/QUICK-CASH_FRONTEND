@@ -193,6 +193,18 @@ class ApiService {
   }
 
   // ==============================
+  Future<List<dynamic>> getLoanInstallments(int loanId) async {
+    final response = await get('${ApiConstants.borrowerLoans}/$loanId/installments');
+    if (response is! List) throw ApiException('Invalid installment response');
+    return response;
+  }
+
+  Future<List<dynamic>> getLoanPayments(int loanId) async {
+    final response = await get('/api/borrower/loans/$loanId/payments');
+    if (response is! List) throw ApiException('Invalid payment history response');
+    return response;
+  }
+
   // GET REQUEST
   // ==============================
 

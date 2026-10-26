@@ -1,0 +1,14 @@
+QuickCash borrower UI integration notes
+
+Added screens:
+- lib/screens/borrower/my_loans_screen.dart
+- lib/screens/borrower/loan_details_screen.dart
+
+ApiService methods added:
+- getLoanInstallments(int loanId)
+- getLoanPayments(int loanId)
+
+Connect the Borrower Dashboard "My Loans" action to:
+Navigator.push(context, MaterialPageRoute(builder: (_) => const MyLoansScreen()));
+
+Run flutter analyze and flutter test locally before merging. API and compile tests have not yet been run in this change.
