@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
+import '../collector/collector_dashboard_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -47,8 +48,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
-      // Role-based dashboard navigation will be
-      // connected after dashboard screens are created.
+      if (role == 'COLLECTOR' || role == 'FIELD_COLLECTOR') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => const CollectorDashboardScreen(),
+          ),
+        );
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
 
