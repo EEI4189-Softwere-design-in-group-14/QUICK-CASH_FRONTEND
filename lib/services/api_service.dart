@@ -141,6 +141,62 @@ class ApiService {
   }
 
   // ==============================
+  // BORROWER DASHBOARD
+  // GET /api/borrower/dashboard
+  // ==============================
+
+  Future<Map<String, dynamic>> getBorrowerDashboard() async {
+    final response = await get(ApiConstants.borrowerDashboard);
+    if (response is! Map<String, dynamic>) {
+      throw ApiException('Invalid borrower dashboard response');
+    }
+    return response;
+  }
+
+  // ==============================
+  // BORROWER LOANS
+  // ==============================
+
+  Future<List<dynamic>> getMyLoans() async {
+    final response = await get(ApiConstants.borrowerLoans);
+    if (response is! List) {
+      throw ApiException('Invalid loans response');
+    }
+    return response;
+  }
+
+  // POST /api/borrower/loans
+  // Loan and guarantor details are submitted together.
+  Future<Map<String, dynamic>> applyForLoan({
+    required double requestedAmount,
+    required String purpose,
+    required int repaymentMonths,
+    required String guarantorFullName,
+    required String guarantorNic,
+    required String guarantorPhone,
+    required String guarantorAddress,
+    String? guarantorOccupation,
+  }) async {
+    final response = await post(
+      ApiConstants.borrowerLoans,
+      {
+        'requestedAmount': requestedAmount,
+        'purpose': purpose.trim(),
+        'repaymentMonths': repaymentMonths,
+        'guarantorFullName': guarantorFullName.trim(),
+        'guarantorNic': guarantorNic.trim(),
+        'guarantorPhone': guarantorPhone.trim(),
+        'guarantorAddress': guarantorAddress.trim(),
+        'guarantorOccupation': guarantorOccupation?.trim() ?? '',
+      },
+    );
+    if (response is! Map<String, dynamic>) {
+      throw ApiException('Invalid loan application response');
+    }
+    return response;
+  }
+
+  // ==============================
   // GET REQUEST
   // ==============================
 
