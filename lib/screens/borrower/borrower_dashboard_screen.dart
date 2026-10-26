@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import 'loan_application_screen.dart';
-import 'guarantor_details_screen.dart';
 
 class BorrowerDashboardScreen extends StatefulWidget {
   const BorrowerDashboardScreen({super.key, this.borrowerName});
@@ -207,11 +206,13 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
                     title: 'My Guarantors',
                     icon: Icons.people_outline_rounded,
                     onTap: () {
-                      Navigator.of(context).push(
+                      Navigator.of(context).push<bool>(
                         MaterialPageRoute<bool>(
-                          builder: (_) => const GuarantorDetailsScreen(),
+                          builder: (_) => const LoanApplicationScreen(),
                         ),
-                      );
+                      ).then((submitted) {
+                        if (submitted == true) _loadDashboard();
+                      });
                     },
                   ),
                 ),
