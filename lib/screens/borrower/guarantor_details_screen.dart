@@ -110,6 +110,8 @@ class GuarantorDetailsScreen extends StatelessWidget {
 }
 
 class _RequirementRow extends StatelessWidget {
+  static const Color primary = Color(0xFF168B62);
+
   const _RequirementRow({required this.text});
 
   final String text;
