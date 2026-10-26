@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
+import '../borrower/borrower_dashboard_screen.dart';
 import '../collector/collector_dashboard_screen.dart';
 import 'register_screen.dart';
 
@@ -36,22 +36,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      final role = response['role']
-          ?.toString()
-          .toUpperCase() ??
-          'UNKNOWN';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Login successful! Role: $role'),
-          backgroundColor: green,
-        ),
-      );
+      final role = response['role']?.toString().toUpperCase() ?? 'UNKNOWN';
 
       if (role == 'COLLECTOR' || role == 'FIELD_COLLECTOR') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
             builder: (_) => const CollectorDashboardScreen(),
+          ),
+        );
+      } else if (role == 'BORROWER' || role == 'CUSTOMER') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => BorrowerDashboardScreen(
+              borrowerName: response['fullName']?.toString(),
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login successful! Role: $role'),
+            backgroundColor: green,
           ),
         );
       }
@@ -69,9 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Something went wrong. Please try again.',
-          ),
+          content: Text('Something went wrong. Please try again.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -112,15 +115,12 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 60),
-
                 const Icon(
                   Icons.account_balance_wallet,
                   color: green,
                   size: 72,
                 ),
-
                 const SizedBox(height: 16),
-
                 const Text(
                   'QuickCash',
                   textAlign: TextAlign.center,
@@ -130,9 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: green,
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 const Text(
                   'Welcome Back!',
                   textAlign: TextAlign.center,
@@ -141,9 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-
                 const SizedBox(height: 40),
-
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -158,19 +154,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
-
                     if (!RegExp(
                       r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
                     ).hasMatch(value.trim())) {
                       return 'Enter a valid email';
                     }
-
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 20),
-
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _hidePassword,
@@ -182,14 +174,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _hidePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+                        _hidePassword ? Icons.visibility_off : Icons.visibility,
                       ),
                       onPressed: () {
-                        setState(() {
-                          _hidePassword = !_hidePassword;
-                        });
+                        setState(() => _hidePassword = !_hidePassword);
                       },
                     ),
                   ),
@@ -200,9 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 30),
-
                 SizedBox(
                   height: 52,
                   child: ElevatedButton(
@@ -216,29 +202,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: _isLoading
                         ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                        : const Text(
-                      'Login',
-                      style: TextStyle(fontSize: 17),
-                    ),
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Login', style: TextStyle(fontSize: 17)),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text("Don't have an account?"),
                     TextButton(
-                      onPressed:
-                      _isLoading ? null : _openRegistration,
+                      onPressed: _isLoading ? null : _openRegistration,
                       child: const Text(
                         'Register',
                         style: TextStyle(
@@ -249,16 +229,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 24),
-
                 const Text(
                   'QuickCash Loan Management System',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
             ),
