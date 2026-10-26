@@ -47,7 +47,9 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (role == 'BORROWER' || role == 'CUSTOMER') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
-            builder: (_) => const BorrowerDashboardScreen(),
+            builder: (_) => BorrowerDashboardScreen(
+              borrowerName: response['fullName']?.toString(),
+            ),
           ),
         );
       } else {
