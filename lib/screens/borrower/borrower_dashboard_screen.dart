@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'loan_application_screen.dart';
+
 class BorrowerDashboardScreen extends StatefulWidget {
   const BorrowerDashboardScreen({super.key});
 
@@ -110,7 +112,13 @@ class _BorrowerDashboardScreenState extends State<BorrowerDashboardScreen> {
                   child: _actionCard(
                     title: 'Apply for Loan',
                     icon: Icons.add_card_rounded,
-                    onTap: () => _showComingSoon('Loan application'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<bool>(
+                          builder: (_) => const LoanApplicationScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
