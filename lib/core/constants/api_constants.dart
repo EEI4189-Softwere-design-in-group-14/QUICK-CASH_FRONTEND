@@ -8,6 +8,8 @@ class ApiConstants {
 
   static const String borrowerLoans = '/api/borrower/loans';
 
+  static const String borrowerDashboard = '/api/borrower/dashboard';
+
   static const String managerLoans = '/api/manager/loans';
 
   static const String managerBorrowers = '/api/manager/borrowers';
