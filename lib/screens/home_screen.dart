@@ -5,6 +5,7 @@ import 'loan_application_screen.dart';
 import 'manager_review_screen.dart';
 import 'loan_disbursement_screen.dart';
 import 'borrower_loan_details_screen.dart';
+import 'collector_borrower_search_screen.dart';
 class HomeScreen extends StatefulWidget {
   final UserSession session;
   const HomeScreen({super.key, required this.session});
@@ -58,7 +59,38 @@ class _HomeScreenState extends State<HomeScreen> {
         Text('$role • ${widget.session.email}', style: const TextStyle(color: Colors.black54)),
         const SizedBox(height: 25),
         if (_dashboardPath == null)
-          const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('Collector dashboard: the main backend branch has no dedicated collector dashboard endpoint yet. Payment-related screens will be connected in the next module.')))
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'Collector Dashboard\n'
+                        'Borrower search and payment collection.',
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              if (role == 'COLLECTOR')
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                        const CollectorBorrowerSearchScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.search),
+                  label: const Text('Search Borrowers'),
+                ),
+            ],
+          )
+
         else FutureBuilder<dynamic>(future: _dashboard, builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) { return const Center(child: Padding(padding: EdgeInsets.all(35), child: CircularProgressIndicator())); }
           if (snapshot.hasError) {
