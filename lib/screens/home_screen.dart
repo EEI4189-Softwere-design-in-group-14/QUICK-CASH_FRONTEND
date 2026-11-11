@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import 'login_screen.dart';
@@ -6,15 +7,19 @@ import 'manager_review_screen.dart';
 import 'loan_disbursement_screen.dart';
 import 'borrower_loan_details_screen.dart';
 import 'collector_borrower_search_screen.dart';
+import 'daily_payment_collection_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   final UserSession session;
   const HomeScreen({super.key, required this.session});
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<dynamic> _dashboard;
+
   String? get _dashboardPath => switch (widget.session.role) {
     'MANAGER' || 'OWNER' => '/manager/dashboard',
     'BORROWER' => '/borrower/dashboard',
@@ -58,8 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 5),
         Text('$role • ${widget.session.email}', style: const TextStyle(color: Colors.black54)),
         const SizedBox(height: 25),
-        if (_dashboardPath == null)
 
+        // COLLECTOR DASHBOARD
+        if (_dashboardPath == null)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -75,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 12),
 
+              // KAN-125: BORROWER SEARCH
               if (role == 'COLLECTOR')
                 ElevatedButton.icon(
                   onPressed: () {
@@ -88,9 +95,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: const Icon(Icons.search),
                   label: const Text('Search Borrowers'),
                 ),
+
+              const SizedBox(height: 12),
+
+              // KAN-126: DAILY PAYMENT COLLECTION
+              if (role == 'COLLECTOR')
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                        const DailyPaymentCollectionScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.payments_outlined),
+                  label: const Text('Collect Daily Payment'),
+                ),
             ],
           )
 
+        // MANAGER / BORROWER DASHBOARD
         else FutureBuilder<dynamic>(future: _dashboard, builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) { return const Center(child: Padding(padding: EdgeInsets.all(35), child: CircularProgressIndicator())); }
           if (snapshot.hasError) {
@@ -289,13 +314,16 @@ class LoansScreen extends StatefulWidget {
 
 class _LoansScreenState extends State<LoansScreen> {
   late Future<dynamic> _items;
+
   Future<dynamic> _load() async {
     final api = ApiClient();
     try { return await api.request('GET', widget.path, token: widget.token); }
     finally { api.close(); }
   }
+
   @override
   void initState() { super.initState(); _items = _load(); }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(widget.title)),
