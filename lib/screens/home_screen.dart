@@ -3,7 +3,7 @@ import '../core/api_client.dart';
 import 'login_screen.dart';
 import 'loan_application_screen.dart';
 import 'manager_review_screen.dart';
-
+import 'loan_disbursement_screen.dart';
 class HomeScreen extends StatefulWidget {
   final UserSession session;
   const HomeScreen({super.key, required this.session});
@@ -51,28 +51,28 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(onRefresh: () async { _refresh(); await _dashboard; }, child:
-        ListView(padding: const EdgeInsets.all(20), children: [
-          Text('Hello, ${widget.session.name}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 5),
-          Text('$role • ${widget.session.email}', style: const TextStyle(color: Colors.black54)),
-          const SizedBox(height: 25),
-          if (_dashboardPath == null)
-            const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('Collector dashboard: the main backend branch has no dedicated collector dashboard endpoint yet. Payment-related screens will be connected in the next module.')))
-          else FutureBuilder<dynamic>(future: _dashboard, builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) { return const Center(child: Padding(padding: EdgeInsets.all(35), child: CircularProgressIndicator())); }
-            if (snapshot.hasError) {
-              return Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ListView(padding: const EdgeInsets.all(20), children: [
+        Text('Hello, ${widget.session.name}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 5),
+        Text('$role • ${widget.session.email}', style: const TextStyle(color: Colors.black54)),
+        const SizedBox(height: 25),
+        if (_dashboardPath == null)
+          const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('Collector dashboard: the main backend branch has no dedicated collector dashboard endpoint yet. Payment-related screens will be connected in the next module.')))
+        else FutureBuilder<dynamic>(future: _dashboard, builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) { return const Center(child: Padding(padding: EdgeInsets.all(35), child: CircularProgressIndicator())); }
+          if (snapshot.hasError) {
+            return Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Dashboard could not be loaded', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8), Text('${snapshot.error}'),
               const SizedBox(height: 8), TextButton(onPressed: _refresh, child: const Text('Try again')),
-              ])));
-            }
-            final data = snapshot.data;
-            if (data is! Map<String, dynamic>) { return const Text('Unexpected dashboard response'); }
-            if (role == 'BORROWER') { return _borrowerDashboard(context, data); }
-            return _managerDashboard(context, data);
-          }),
-        ]),
+            ])));
+          }
+          final data = snapshot.data;
+          if (data is! Map<String, dynamic>) { return const Text('Unexpected dashboard response'); }
+          if (role == 'BORROWER') { return _borrowerDashboard(context, data); }
+          return _managerDashboard(context, data);
+        }),
+      ]),
       ),
     );
   }
@@ -100,7 +100,95 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (changed == true && mounted) _refresh();
     }, icon: const Icon(Icons.people_outline), label: const Text('Review pending borrowers')),
+    const SizedBox(height: 8),
+    OutlinedButton.icon(
+      onPressed: _openDisbursement,
+      icon: const Icon(Icons.lock_outline),
+      label: const Text('Disburse approved loan (OTP)'),
+    ),
   ]);
+
+  // KAN-47: Temporary manual loan selection for local OTP testing.
+  // Loan ID and code must be checked in the database before proceeding.
+  Future<void> _openDisbursement() async {
+    final formKey = GlobalKey<FormState>();
+    int? selectedId;
+    String selectedCode = '';
+
+    final loan = await showDialog<({int id, String code})>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Approved Loan Details'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'For local testing only. Check the loan ID, loan code, '
+                      'and APPROVED status in the database before continuing.',
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Loan ID'),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    final id = int.tryParse((value ?? '').trim());
+                    return id != null && id > 0
+                        ? null
+                        : 'Enter a valid Loan ID';
+                  },
+                  onSaved: (value) {
+                    selectedId = int.parse(value!.trim());
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Loan Code'),
+                  validator: (value) => (value ?? '').trim().isNotEmpty
+                      ? null
+                      : 'Enter Loan Code',
+                  onSaved: (value) {
+                    selectedCode = value!.trim();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              formKey.currentState!.save();
+              Navigator.pop(dialogContext,
+                  (id: selectedId!, code: selectedCode));
+            },
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+
+    if (loan == null || !mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LoanDisbursementScreen(
+          token: widget.session.token,
+          loanId: loan.id,
+          loanCode: loan.code,
+        ),
+      ),
+    );
+
+    if (mounted) _refresh();
+  }
 
   Widget _borrowerDashboard(BuildContext context, Map<String, dynamic> data) {
     final loans = data['loans'];
