@@ -4,6 +4,7 @@ import 'login_screen.dart';
 import 'loan_application_screen.dart';
 import 'manager_review_screen.dart';
 import 'loan_disbursement_screen.dart';
+import 'borrower_loan_details_screen.dart';
 class HomeScreen extends StatefulWidget {
   final UserSession session;
   const HomeScreen({super.key, required this.session});
@@ -276,6 +277,20 @@ class _LoansScreenState extends State<LoansScreen> {
         final item = result[index];
         if (item is! Map) { return const SizedBox.shrink(); }
         return Card(child: ListTile(
+          onTap: () {
+            final id = item['loanId'];
+
+            if (id is! num) return;
+
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => BorrowerLoanDetailsScreen(
+                  token: widget.token,
+                  loanId: id.toInt(),
+                ),
+              ),
+            );
+          },
           title: Text('${item['loanCode'] ?? 'Loan #${item['loanId'] ?? '-'}'}'),
           subtitle: Text('${item['purpose'] ?? 'No purpose'}\nStatus: ${item['status'] ?? '-'}'),
           isThreeLine: true,
