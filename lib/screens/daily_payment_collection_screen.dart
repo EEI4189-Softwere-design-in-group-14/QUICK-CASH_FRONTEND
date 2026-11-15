@@ -275,12 +275,13 @@ class _DailyPaymentCollectionScreenState
       // STEP 3: Navigate only after confirmed payment.
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => PaymentSuccessScreen(
-            payment: payment,
-            borrowerName: verifiedBorrowerName,
-            receipt: receipt,
-            previewMode: false,
-          ),
+            builder: (_) => PaymentSuccessScreen(
+              token: widget.token,
+              payment: payment,
+              borrowerName: verifiedBorrowerName,
+              receipt: receipt,
+              previewMode: false,
+            ),
         ),
       );
     } catch (error) {
