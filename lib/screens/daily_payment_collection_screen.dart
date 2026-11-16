@@ -1,13 +1,20 @@
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/api_client.dart';
+import 'payment_success_screen.dart';
+
 class DailyPaymentCollectionScreen extends StatefulWidget {
+  final String token;
   final int? initialLoanId;
   final String? initialBorrowerName;
 
   const DailyPaymentCollectionScreen({
     super.key,
+    required this.token,
     this.initialLoanId,
     this.initialBorrowerName,
   });
@@ -19,6 +26,7 @@ class DailyPaymentCollectionScreen extends StatefulWidget {
 
 class _DailyPaymentCollectionScreenState
     extends State<DailyPaymentCollectionScreen> {
+
   static const Color primaryGreen = Color(0xFF087F5B);
 
   final _formKey = GlobalKey<FormState>();
@@ -26,10 +34,17 @@ class _DailyPaymentCollectionScreenState
   late final TextEditingController _loanIdController;
   late final TextEditingController _borrowerController;
 
-  final TextEditingController _amountController =
-  TextEditingController();
+  final _amountController = TextEditingController();
 
-  final DateTime _paymentDate = DateTime.now();
+  bool _submitting = false;
+  String? _error;
+
+  // Keep the same request when retrying after a network error.
+  ({
+  int loanId,
+  String amount,
+  String transactionId,
+  })? _pendingPayment;
 
   @override
   void initState() {
@@ -52,15 +67,32 @@ class _DailyPaymentCollectionScreenState
     super.dispose();
   }
 
-  String get _formattedDate {
-    final day = _paymentDate.day.toString().padLeft(2, '0');
-    final month = _paymentDate.month.toString().padLeft(2, '0');
-    final year = _paymentDate.year;
+  String _money(Object? value) {
+    final amount = num.tryParse(value.toString());
 
-    return '$year-$month-$day';
+    if (amount == null) return 'LKR -';
+
+    return 'LKR ${amount.toStringAsFixed(2)}';
+  }
+
+  String _generateTransactionId() {
+    final random = Random.secure();
+
+    final bytes = List<int>.generate(
+      16,
+          (_) => random.nextInt(256),
+    );
+
+    final randomPart = bytes
+        .map((value) => value.toRadixString(16).padLeft(2, '0'))
+        .join();
+
+    return 'QC-${DateTime.now().microsecondsSinceEpoch}-$randomPart';
   }
 
   void _clearForm() {
+    if (_submitting || _pendingPayment != null) return;
+
     _formKey.currentState?.reset();
 
     _loanIdController.text =
@@ -70,9 +102,20 @@ class _DailyPaymentCollectionScreenState
         widget.initialBorrowerName ?? '';
 
     _amountController.clear();
+
+    setState(() {
+      _error = null;
+    });
   }
 
   void _reviewPayment() {
+    // Retry the exact same payment if the previous result
+    // was uncertain.
+    if (_pendingPayment != null) {
+      _submitPayment();
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -83,74 +126,72 @@ class _DailyPaymentCollectionScreenState
       _loanIdController.text.trim(),
     );
 
-    final amount = double.parse(
-      _amountController.text.trim(),
-    );
-
-    final borrowerName =
-    _borrowerController.text.trim().isEmpty
-        ? 'Not selected'
-        : _borrowerController.text.trim();
+    final amount = _amountController.text.trim();
 
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(
-                Icons.receipt_long_outlined,
-                color: primaryGreen,
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text('Payment Preview'),
-              ),
-            ],
-          ),
+          title: const Text('Confirm Loan Payment'),
+
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Borrower: $borrowerName'),
+              const Text(
+                'Please verify the payment details '
+                    'before saving.',
+              ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 18),
 
               Text('Loan ID: $loanId'),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
-              Text(
-                'Amount: LKR ${amount.toStringAsFixed(2)}',
-              ),
+              Text('Amount: ${_money(amount)}'),
 
-              const SizedBox(height: 8),
-
-              Text('Date: $_formattedDate'),
-
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
               const Text('Payment Method: Cash'),
 
-              const Divider(height: 26),
+              const SizedBox(height: 18),
 
               const Text(
-                'UI preview only. No payment has '
-                    'been submitted or saved.',
+                'Confirm only after receiving the cash. '
+                    'This action records an actual payment '
+                    'and updates the loan balance.',
                 style: TextStyle(
                   color: Colors.deepOrange,
-                  fontSize: 12,
+                  fontSize: 13,
                 ),
               ),
             ],
           ),
+
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop();
+                Navigator.pop(dialogContext);
               },
-              child: const Text('Close'),
+              child: const Text('Cancel'),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+
+                setState(() {
+                  _pendingPayment = (
+                  loanId: loanId,
+                  amount: amount,
+                  transactionId: _generateTransactionId(),
+                  );
+                });
+
+                _submitPayment();
+              },
+              child: const Text('Confirm & Save'),
             ),
           ],
         );
@@ -158,8 +199,117 @@ class _DailyPaymentCollectionScreenState
     );
   }
 
+  Future<void> _submitPayment() async {
+    final pending = _pendingPayment;
+
+    if (pending == null || _submitting) return;
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final api = ApiClient();
+
+    try {
+      // STEP 1: Save actual payment to Spring Boot.
+      final response = await api.request(
+        'POST',
+        '/collector/payments',
+        token: widget.token,
+        body: {
+          'loanId': pending.loanId,
+          'amount': double.parse(pending.amount),
+          'clientTransactionId': pending.transactionId,
+        },
+      );
+
+      if (response is! Map) {
+        throw const ApiException(
+          'Unexpected payment response. '
+              'Verify the payment before retrying.',
+        );
+      }
+
+      final payment = Map<String, dynamic>.from(response);
+
+      final paymentId = payment['paymentId'];
+
+      // Do not show success for an unconfirmed payment.
+      if (payment['status'] != 'ACCEPTED' ||
+          paymentId is! num) {
+        throw const ApiException(
+          'Payment is not confirmed. '
+              'Please verify the payment status.',
+        );
+      }
+
+      // STEP 2: Load the actual receipt.
+      // A receipt request failure must not make the
+      // already-saved payment appear unsuccessful.
+      Map<String, dynamic>? receipt;
+
+      try {
+        final receiptResponse = await api.request(
+          'GET',
+          '/receipts/payment/${paymentId.toInt()}',
+          token: widget.token,
+        );
+
+        if (receiptResponse is Map) {
+          receipt = Map<String, dynamic>.from(
+            receiptResponse,
+          );
+        }
+      } catch (_) {
+        // Payment is saved, but receipt lookup
+        // can be retried during KAN-132 integration.
+      }
+
+      if (!mounted) return;
+
+      final verifiedBorrowerName =
+          receipt?['borrowerName']?.toString() ??
+              'Borrower details unavailable';
+
+      // STEP 3: Navigate only after confirmed payment.
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+            builder: (_) => PaymentSuccessScreen(
+              token: widget.token,
+              payment: payment,
+              borrowerName: verifiedBorrowerName,
+              receipt: receipt,
+              previewMode: false,
+            ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _error =
+        '$error\n\n'
+            'Payment confirmation was not received. '
+            'Do not submit this payment as a new transaction. '
+            'Use Retry Same Payment or verify it with the manager.';
+      });
+    } finally {
+      api.close();
+
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final locked = _submitting ||
+        _pendingPayment != null;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8F6),
 
@@ -176,15 +326,14 @@ class _DailyPaymentCollectionScreenState
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 600,
-            ),
+            constraints: const BoxConstraints(maxWidth: 600),
 
             child: Form(
               key: _formKey,
 
               child: ListView(
                 padding: const EdgeInsets.all(18),
+
                 children: [
                   const CircleAvatar(
                     radius: 35,
@@ -207,11 +356,10 @@ class _DailyPaymentCollectionScreenState
                     ),
                   ),
 
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
 
                   const Text(
-                    'Enter the borrower loan details '
-                        'and payment amount.',
+                    'Record a payment for an assigned loan.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.black54,
@@ -223,9 +371,11 @@ class _DailyPaymentCollectionScreenState
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(18),
+
                       child: Column(
                         crossAxisAlignment:
                         CrossAxisAlignment.start,
+
                         children: [
                           const Text(
                             'Loan Information',
@@ -239,15 +389,17 @@ class _DailyPaymentCollectionScreenState
 
                           TextFormField(
                             controller: _borrowerController,
+                            enabled: !locked,
                             maxLength: 100,
                             decoration: const InputDecoration(
                               labelText: 'Borrower Name',
-                              hintText: 'Enter borrower name',
+                              hintText: 'Borrower name',
                               prefixIcon: Icon(
                                 Icons.person_outline,
                               ),
                               helperText:
-                              'For UI preview only',
+                              'For reference only. '
+                                  'Backend verifies the loan.',
                             ),
                           ),
 
@@ -255,18 +407,18 @@ class _DailyPaymentCollectionScreenState
 
                           TextFormField(
                             controller: _loanIdController,
+                            enabled: !locked,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
-                              FilteringTextInputFormatter
-                                  .digitsOnly,
+                              FilteringTextInputFormatter.digitsOnly,
                             ],
+
                             decoration: const InputDecoration(
                               labelText: 'Loan ID *',
-                              hintText: 'Enter numeric loan ID',
-                              prefixIcon: Icon(
-                                Icons.numbers,
-                              ),
+                              hintText: 'Enter Loan ID',
+                              prefixIcon: Icon(Icons.numbers),
                             ),
+
                             validator: (value) {
                               final id = int.tryParse(
                                 value?.trim() ?? '',
@@ -289,9 +441,11 @@ class _DailyPaymentCollectionScreenState
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(18),
+
                       child: Column(
                         crossAxisAlignment:
                         CrossAxisAlignment.start,
+
                         children: [
                           const Text(
                             'Payment Information',
@@ -305,17 +459,19 @@ class _DailyPaymentCollectionScreenState
 
                           TextFormField(
                             controller: _amountController,
+                            enabled: !locked,
+
                             keyboardType:
-                            const TextInputType
-                                .numberWithOptions(
+                            const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
+
                             inputFormatters: [
-                              FilteringTextInputFormatter
-                                  .allow(
+                              FilteringTextInputFormatter.allow(
                                 RegExp(r'[0-9.]'),
                               ),
                             ],
+
                             decoration: const InputDecoration(
                               labelText: 'Payment Amount *',
                               hintText: 'e.g. 500.00',
@@ -324,13 +480,9 @@ class _DailyPaymentCollectionScreenState
                               ),
                               prefixText: 'LKR ',
                             ),
-                            validator: (value) {
-                              final input =
-                                  value?.trim() ?? '';
 
-                              if (input.isEmpty) {
-                                return 'Enter payment amount';
-                              }
+                            validator: (value) {
+                              final input = value?.trim() ?? '';
 
                               if (!RegExp(
                                 r'^\d+(\.\d{1,2})?$',
@@ -339,55 +491,16 @@ class _DailyPaymentCollectionScreenState
                                     'with up to 2 decimals';
                               }
 
-                              final amount =
-                              double.tryParse(input);
+                              final amount = double.tryParse(input);
 
                               if (amount == null ||
                                   !amount.isFinite ||
                                   amount <= 0) {
-                                return 'Amount must be '
-                                    'greater than zero';
+                                return 'Amount must be greater than zero';
                               }
 
                               return null;
                             },
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.calendar_today_outlined,
-                                color: primaryGreen,
-                              ),
-
-                              const SizedBox(width: 12),
-
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Collection Date',
-                                      style: TextStyle(
-                                        color: Colors.black54,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-
-                                    Text(
-                                      _formattedDate,
-                                      style: const TextStyle(
-                                        fontWeight:
-                                        FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ),
 
                           const SizedBox(height: 18),
@@ -398,12 +511,8 @@ class _DailyPaymentCollectionScreenState
                                 Icons.account_balance_wallet_outlined,
                                 color: primaryGreen,
                               ),
-
                               SizedBox(width: 12),
-
-                              Text(
-                                'Payment Method: Cash',
-                              ),
+                              Text('Payment Method: Cash'),
                             ],
                           ),
                         ],
@@ -413,44 +522,63 @@ class _DailyPaymentCollectionScreenState
 
                   const SizedBox(height: 16),
 
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: primaryGreen,
+                  if (_error != null)
+                    Card(
+                      color: const Color(0xFFFFF1F0),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: Colors.red,
                           ),
-
-                          SizedBox(width: 12),
-
-                          Expanded(
-                            child: Text(
-                              'Loan balance verification and '
-                                  'payment submission will be '
-                                  'enabled after API integration.',
-                              style: TextStyle(
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 22),
+                  if (_pendingPayment != null)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                        'An earlier payment attempt may have '
+                            'reached the server. The amount and '
+                            'loan are locked to prevent an '
+                            'accidental duplicate transaction.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.deepOrange,
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 18),
 
                   SizedBox(
                     height: 50,
                     child: ElevatedButton.icon(
-                      onPressed: _reviewPayment,
-                      icon: const Icon(
-                        Icons.fact_check_outlined,
+                      onPressed:
+                      _submitting ? null : _reviewPayment,
+
+                      icon: _submitting
+                          ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                          : Icon(
+                        _pendingPayment == null
+                            ? Icons.fact_check_outlined
+                            : Icons.refresh,
                       ),
-                      label: const Text(
-                        'Review Payment',
+
+                      label: Text(
+                        _submitting
+                            ? 'Saving Payment...'
+                            : _pendingPayment != null
+                            ? 'Retry Same Payment'
+                            : 'Review Payment',
                       ),
                     ),
                   ),
@@ -458,7 +586,7 @@ class _DailyPaymentCollectionScreenState
                   const SizedBox(height: 12),
 
                   OutlinedButton.icon(
-                    onPressed: _clearForm,
+                    onPressed: locked ? null : _clearForm,
                     icon: const Icon(Icons.refresh),
                     label: const Text('Clear Form'),
                   ),
