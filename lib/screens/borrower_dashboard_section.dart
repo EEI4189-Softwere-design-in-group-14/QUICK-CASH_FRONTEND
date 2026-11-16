@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../widgets/dashboard_metrics.dart';
 import 'borrower_loans_screen.dart';
 import 'loan_application_screen.dart';
+import 'borrower_payment_history_screen.dart';
+import 'borrower_repayment_schedule_screen.dart';
 
 class BorrowerDashboardSection extends StatelessWidget {
   final String token;
@@ -92,6 +94,23 @@ class BorrowerDashboardSection extends StatelessWidget {
           label: const Text('View all loans'),
         ),
 
+        const SizedBox(height: 12),
+
+        OutlinedButton.icon(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => BorrowerPaymentHistoryScreen(
+                  token: token,
+                ),
+              ),
+            );
+          },
+          icon: const Icon(Icons.history),
+          label: const Text('View Payment History'),
+        ),
+
+
         const SizedBox(height: 8),
 
         ElevatedButton.icon(
@@ -111,6 +130,25 @@ class BorrowerDashboardSection extends StatelessWidget {
           icon: const Icon(Icons.add_circle_outline),
           label: const Text('Apply for a new loan'),
         ),
+        const SizedBox(height: 12),
+
+// KAN-128: Borrower Repayment Schedule
+        OutlinedButton.icon(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => BorrowerRepaymentScheduleScreen(
+                  token: token,
+                ),
+              ),
+            );
+          },
+          icon: const Icon(Icons.calendar_month_outlined),
+          label: const Text('View Repayment Schedule'),
+        ),
+
+        const SizedBox(height: 12),
+
       ],
     );
   }
