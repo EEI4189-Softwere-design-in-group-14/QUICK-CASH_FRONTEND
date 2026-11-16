@@ -187,9 +187,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
 
                   return ManagerDashboardSection(
+                    canReconcile: role == 'MANAGER',
                     token: widget.session.token,
                     data: data,
                     onRefresh: _refresh,
+
                   );
                 },
               ),
