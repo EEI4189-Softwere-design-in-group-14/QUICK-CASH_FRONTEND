@@ -99,7 +99,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-
       body: RefreshIndicator(
         onRefresh: _refreshDashboard,
         child: ListView(
@@ -126,6 +125,8 @@ class _HomeScreenState extends State<HomeScreen> {
             if (role == 'COLLECTOR')
               CollectorDashboardSection(
                 token: widget.session.token,
+                collectorId:
+                widget.session.email.trim().toLowerCase(),
               )
             else if (_dashboardPath == null)
               const Text('Unsupported account role.')
@@ -191,7 +192,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     token: widget.session.token,
                     data: data,
                     onRefresh: _refresh,
-
                   );
                 },
               ),
